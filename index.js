@@ -24,6 +24,7 @@ async function getBlockTxs(blockNumber) {
 
 async function getLatestBlockTxByIndex(index) {
   let blockData = await getLatestBlock();
+  console.log(blockData.transactions[index]);
   return blockData.transactions[index];
 }
 
@@ -53,6 +54,37 @@ async function getBlocksByRangeFromLatest(blocksFromLatest) {
   return BlockRange;
 }
 
+async function getTxData(txHash) {
+  let txData = await web3.eth.getTransaction(txHash);
+  //console.log(txData);
+  return txData;
+}
+
+function parseTxData(txData) {
+  if (txData !== null) {
+    return txData.value;
+  } else {
+    return "0";
+  }
+}
+
+async function getLatestEtherTransferred() {
+  let latestTxs = await getLatestBlockTxs();
+  let latestTxValues = [];
+  var latestTxData = [];
+  let totalValue = 0;
+
+  for (const tx of latestTxs) {
+    let txData = await getTxData(tx);
+    let parsedTxValue = await parseTxData(txData);
+    let stringEtherValue = await web3.utils.fromWei(parsedTxValue);
+    let numberValue = Number(stringEtherValue);
+    totalValue += numberValue;
+  }
+  console.log(totalValue);
+  return totalValue;
+}
+
 //getLatestBlock();
 //getBlock(0);
 //getLatestBlockTxs();
@@ -61,3 +93,7 @@ async function getBlocksByRangeFromLatest(blocksFromLatest) {
 //getBlockTxByIndex(5000001, 0);
 //getBlocksByRange(0, 5);
 //getBlocksByRangeFromLatest(5);
+
+//getTxData("0xed0c9a5e4b75cc10e9e0e8106ab5c3c16381582e20b8ee644b99d98fb68fb36f");
+
+getLatestEtherTransferred();
