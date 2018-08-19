@@ -1,6 +1,6 @@
 # ethercash
 
-TODO
+an Ethereum blockchain command-line ether cash flow block explorer
 
 ## Setup
 
