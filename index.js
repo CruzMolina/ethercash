@@ -1,4 +1,5 @@
 const Web3 = require("web3");
+const promptly = require("promptly");
 const infuraNode = "https://mainnet.infura.io/";
 const web3 = new Web3(new Web3.providers.HttpProvider(infuraNode));
 
@@ -239,7 +240,7 @@ async function getBlockRangeEtherCashFlow(startBlockNumber, endBlockNumber) {
     BlockRange
   );
 
-  //console.log(totalValue, recipients, senders, contracts);
+  console.log(totalValue, recipients, senders, contracts);
 
   return totalValue, recipients, senders, contracts;
 }
@@ -256,6 +257,58 @@ async function getBlockRangeFromLatestEtherCashFlow(blocksFromLatest) {
   return totalValue, recipients, senders, contracts;
 }
 
+async function initialPrompt() {
+  const response = await promptly.prompt(
+    "To query a specific range of blocks enter 1.\nTo query a specific number of blocks from the current block enter 2.\n(All other responses will exit the program):"
+  );
+  return response;
+}
+
+async function rangePrompt() {
+  var start;
+  var end;
+  do {
+    start = await promptly.prompt("Enter the starting block number to query:");
+  } while (isNaN(start));
+  do {
+    end = await promptly.prompt("Enter the ending block number to query:");
+  } while (isNaN(end));
+
+  return await getBlockRangeEtherCashFlow(start, end);
+}
+
+async function fromLatestPrompt() {
+  var fromLatest;
+  do {
+    fromLatest = await promptly.prompt(
+      "Enter the number of blocks to query from the latest block:"
+    );
+  } while (isNaN(fromLatest));
+
+  return await getBlockRangeFromLatestEtherCashFlow(fromLatest);
+}
+
+const main = async () => {
+  console.log("\nThank you for using the EtherCashFlow Block Explorer!\n");
+
+  let response = await initialPrompt();
+
+  //console.log(response);
+
+  if (response === "1") {
+    await rangePrompt();
+    await main();
+    //console.log(startingBlock, endingBlock);
+    //await getBlockRangeEtherCashFlow(startingBlock, endingBlock);
+  }
+  if (response === "2") {
+    await fromLatestPrompt();
+    await main();
+  }
+};
+
+main();
+
 //getLatestBlockData();
 //getBlockData(0);
 //getBlockTxHashes(5000001);
@@ -264,4 +317,4 @@ async function getBlockRangeFromLatestEtherCashFlow(blocksFromLatest) {
 //getTxData("0xed0c9a5e4b75cc10e9e0e8106ab5c3c16381582e20b8ee644b99d98fb68fb36f");
 //getBlockTxData(5000001);
 //getBlockRangeEtherCashFlow(5000000, 5000001);
-getBlockRangeFromLatestEtherCashFlow(1);
+//getBlockRangeFromLatestEtherCashFlow(1);
