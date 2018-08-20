@@ -45,7 +45,6 @@ async function getBlockDataRangeFromLatest(blocksFromLatest) {
 
 async function getTxData(txHash) {
   let txData = await web3.eth.getTransaction(txHash);
-  //console.log(txData);
   return txData;
 }
 
@@ -57,7 +56,6 @@ async function getBlockTxData(blockNumber) {
     let txData = await getTxData(tx);
     blockTxData.push(txData);
   }
-  //console.log(blockTxData);
   return blockTxData;
 }
 
@@ -105,7 +103,6 @@ function parseRecipients(blockTxData) {
       recipients[txRecipient] = numberValue;
     }
   }
-  //console.log(recipients);
   return recipients;
 }
 
@@ -121,7 +118,6 @@ function parseSenders(blockTxData) {
       senders[txSender] = numberValue;
     }
   }
-  //console.log(senders);
   return senders;
 }
 
@@ -134,7 +130,6 @@ function getBlockValue(blockTxData) {
     let numberValue = parseTxValue(txData);
     blockValue += numberValue;
   }
-  //console.log(blockValue);
   return blockValue;
 }
 
@@ -155,7 +150,6 @@ async function parseContracts(blockTxData) {
       Object.assign(contractAddresses, addressTo);
     }
   }
-  //console.log(contractAddresses);
   return contractAddresses;
 }
 
@@ -168,7 +162,6 @@ function parseBlockTxValues(blockTxData) {
       parsedBlock.push(txData);
     }
   }
-  //console.log(parsedBlock);
   return parsedBlock;
 }
 
@@ -241,6 +234,35 @@ function compareContracts(contracts, contractAddresses) {
   return contracts;
 }
 
+// Format helper functions
+
+function formatValue(value) {
+  return "\nThe total Ether transferred was " + value + "!";
+}
+
+function formatRecipients(recipients) {
+  console.log("Recipients of Ether:\n");
+  for (var key in recipients) {
+    console.log("Address " + key + " received " + recipients[key] + " Ether.");
+  }
+}
+
+function formatSenders(senders) {
+  console.log("");
+  console.log("Senders of Ether:\n");
+  for (var key in senders) {
+    console.log("Address " + key + " sent " + senders[key] + " Ether.");
+  }
+}
+
+function formatContracts(contracts) {
+  console.log("");
+  console.log("Smart Contracts:\n");
+  for (var key in contracts) {
+    console.log("Address " + key + " is a smart contract address.");
+  }
+}
+
 // Core EtherCashFlow functions
 
 async function getBlockRangeEtherCashFlow(startBlockNumber, endBlockNumber) {
@@ -250,9 +272,15 @@ async function getBlockRangeEtherCashFlow(startBlockNumber, endBlockNumber) {
     BlockRange
   );
 
-  console.log(totalValue, recipients, senders, contracts);
+  await formatRecipients(recipients);
+  await formatSenders(senders);
+  await formatContracts(contracts);
 
-  return totalValue, recipients, senders, contracts;
+  totalValue = await formatValue(totalValue);
+
+  console.log(totalValue);
+
+  return;
 }
 
 async function getBlockRangeFromLatestEtherCashFlow(blocksFromLatest) {
@@ -262,9 +290,15 @@ async function getBlockRangeFromLatestEtherCashFlow(blocksFromLatest) {
     BlockRange
   );
 
-  console.log(totalValue, recipients, senders, contracts);
+  await formatRecipients(recipients);
+  await formatSenders(senders);
+  await formatContracts(contracts);
 
-  return totalValue, recipients, senders, contracts;
+  totalValue = await formatValue(totalValue);
+
+  console.log(totalValue);
+
+  return;
 }
 
 // Prompt helper functions
@@ -286,6 +320,8 @@ async function rangePrompt() {
     end = await promptly.prompt("Enter the ending block number to query:");
   } while (isNaN(end));
 
+  console.log("\nQuerying blocks...\n");
+
   return await getBlockRangeEtherCashFlow(start, end);
 }
 
@@ -296,6 +332,8 @@ async function fromLatestPrompt() {
       "Enter the number of blocks to query from the latest block:"
     );
   } while (isNaN(fromLatest));
+
+  console.log("\nQuerying blocks...\n");
 
   return await getBlockRangeFromLatestEtherCashFlow(fromLatest);
 }
