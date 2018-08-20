@@ -2,53 +2,39 @@ const Web3 = require("web3");
 const infuraNode = "https://mainnet.infura.io/";
 const web3 = new Web3(new Web3.providers.HttpProvider(infuraNode));
 
-function getLatestBlock() {
+// Helper functions
+
+function getLatestBlockData() {
   let blockData = web3.eth.getBlock("latest");
   return blockData;
 }
 
-function getBlock(blockNumber) {
+function getBlockData(blockNumber) {
   let blockData = web3.eth.getBlock(blockNumber);
   return blockData;
 }
 
-async function getLatestBlockTxs() {
-  let blockData = await getLatestBlock();
+async function getBlockTxHashes(blockNumber) {
+  let blockData = await getBlockData(blockNumber);
   return blockData.transactions;
 }
 
-async function getBlockTxs(blockNumber) {
-  let blockData = await getBlock(blockNumber);
-  return blockData.transactions;
-}
-
-async function getLatestBlockTxByIndex(index) {
-  let blockData = await getLatestBlock();
-  //console.log(blockData.transactions[index]);
-  return blockData.transactions[index];
-}
-
-async function getBlockTxByIndex(blockNumber, index) {
-  let blockData = await getBlock(blockNumber);
-  return blockData.transactions[index];
-}
-
-async function getBlocksByRange(startBlockNumber, endBlockNumber) {
+async function getBlockDataRange(startBlockNumber, endBlockNumber) {
   var BlockRange = [];
 
   for (var i = startBlockNumber; i <= endBlockNumber; i++) {
-    let blockData = await getBlock(i);
+    let blockData = await getBlockData(i);
     BlockRange.push(blockData);
   }
   return BlockRange;
 }
 
-async function getBlocksByRangeFromLatest(blocksFromLatest) {
+async function getBlockDataRangeFromLatest(blocksFromLatest) {
   var BlockRange = [];
-  let latestBlock = await getLatestBlock();
+  let latestBlock = await getLatestBlockData();
 
   for (var i = blocksFromLatest; i >= 0; i--) {
-    let blockData = await getBlock(latestBlock.number - i);
+    let blockData = await getBlockData(latestBlock.number - i);
     BlockRange.push(blockData);
   }
   return BlockRange;
@@ -60,7 +46,7 @@ async function getTxData(txHash) {
   return txData;
 }
 
-function parseNullTxData(txData) {
+function parseNullTxValue(txData) {
   if (txData !== null) {
     return txData.value;
   } else {
@@ -74,82 +60,8 @@ function parseToNumberValue(parsedValue) {
   return numberValue;
 }
 
-async function getLatestBlockEtherTransferred() {
-  let latestTxs = await getLatestBlockTxs();
-  let totalValue = 0;
-
-  for (const tx of latestTxs) {
-    let txData = await getTxData(tx);
-    let parsedTxValue = await parseNullTxData(txData);
-    let numberValue = await parseToNumberValue(parsedTxValue);
-    totalValue += numberValue;
-  }
-  //console.log(totalValue);
-  return totalValue;
-}
-
-async function getBlockEtherTransferred(blockNumber) {
-  let BlockTxs = await getBlockTxs(blockNumber);
-  let totalValue = 0;
-
-  for (const tx of BlockTxs) {
-    let txData = await getTxData(tx);
-    let parsedTxValue = await parseNullTxData(txData);
-    let numberValue = await parseToNumberValue(parsedTxValue);
-    totalValue += numberValue;
-  }
-  //console.log(totalValue);
-  return totalValue;
-}
-
-async function getBlockRangeEtherTransferred(startBlockNumber, endBlockNumber) {
-  let BlockRange = await getBlocksByRange(startBlockNumber, endBlockNumber);
-  let finalRecipients = {};
-  let totalValue = 0;
-
-  for (const block of BlockRange) {
-    let blockValue = await getBlockEtherTransferred(block.number);
-    let recipients = await getBlockRecipients(block.number);
-    for (var key in recipients) {
-      if (finalRecipients.hasOwnProperty(key)) {
-        finalRecipients.key += recipients.key;
-      } else {
-        Object.assign(finalRecipients, recipients);
-      }
-    }
-    totalValue += blockValue;
-  }
-  console.log(finalRecipients);
-  console.log(totalValue);
-
-  return finalRecipients, totalValue;
-}
-
-async function getBlockRangeFromLatestEtherTransferred(blocksFromLatest) {
-  let BlockRange = await getBlocksByRangeFromLatest(blocksFromLatest);
-  let finalRecipients = {};
-  let totalValue = 0;
-
-  for (const block of BlockRange) {
-    let blockValue = await getBlockEtherTransferred(block.number);
-    let recipients = await getBlockRecipients(block.number);
-    for (var key in recipients) {
-      if (finalRecipients.hasOwnProperty(key)) {
-        finalRecipients.key += recipients.key;
-      } else {
-        Object.assign(finalRecipients, recipients);
-      }
-    }
-    totalValue += blockValue;
-  }
-  console.log(finalRecipients);
-  console.log(totalValue);
-
-  return finalRecipients, totalValue;
-}
-
 function parseTxValue(txData) {
-  let parsedTxValue = parseNullTxData(txData);
+  let parsedTxValue = parseNullTxValue(txData);
   let numberValue = parseToNumberValue(parsedTxValue);
   return numberValue;
 }
@@ -159,60 +71,197 @@ function parseTxRecipient(txData) {
   return recipient;
 }
 
-async function getLatestBlockRecipients() {
-  let latestTxs = await getLatestBlockTxs();
+function parseTxSender(txData) {
+  let sender = txData.from;
+  return sender;
+}
+
+function parseRecipients(blockTxData) {
   let recipients = {};
 
-  for (const tx of latestTxs) {
-    let txData = await getTxData(tx);
-    let numberValue = await parseTxValue(txData);
-    if (numberValue > 0) {
-      let txRecipient = await parseTxRecipient(txData);
-      //console.log(numberValue);
-      recipients[txRecipient] = numberValue + 0 || 0;
-      //console.log(recipients[txRecipient]);
-      //amounts.push(numberValue);
-      //totalValue += numberValue;
+  for (const txData of blockTxData) {
+    let txRecipient = parseTxRecipient(txData);
+    let numberValue = parseTxValue(txData);
+    if (txRecipient in recipients) {
+      recipients[txRecipient] += numberValue;
+    } else {
+      recipients[txRecipient] = numberValue;
     }
   }
   //console.log(recipients);
-  //console.log(amounts);
   return recipients;
 }
 
-async function getBlockRecipients(blockNumber) {
-  let blockTxs = await getBlockTxs(blockNumber);
-  let recipients = {};
+function parseSenders(blockTxData) {
+  let senders = {};
 
-  for (const tx of blockTxs) {
-    let txData = await getTxData(tx);
-    let numberValue = await parseTxValue(txData);
-    if (numberValue > 0) {
-      let txRecipient = await parseTxRecipient(txData);
-      //console.log(numberValue);
-      recipients[txRecipient] = numberValue + 0 || 0;
-      //console.log(recipients[txRecipient]);
-      //amounts.push(numberValue);
-      //totalValue += numberValue;
+  for (const txData of blockTxData) {
+    let txSender = parseTxSender(txData);
+    let numberValue = parseTxValue(txData);
+    if (txSender in senders) {
+      senders[txSender] += numberValue;
+    } else {
+      senders[txSender] = numberValue;
     }
   }
-  //console.log(recipients);
-  //console.log(amounts);
+  //console.log(senders);
+  return senders;
+}
+
+function getBlockValue(blockTxData) {
+  let blockValue = 0;
+
+  for (const txData of blockTxData) {
+    let numberValue = parseTxValue(txData);
+    blockValue += numberValue;
+  }
+  //console.log(blockValue);
+  return blockValue;
+}
+
+async function parseContracts(blockTxData) {
+  let contractAddresses = {};
+
+  for (const txData of blockTxData) {
+    let codeFrom = await web3.eth.getCode(txData.from);
+    let codeTo = await web3.eth.getCode(txData.to);
+    if (codeFrom !== "0x") {
+      var addressFrom = {};
+      addressFrom[txData.from] = true;
+      Object.assign(contractAddresses, addressFrom);
+    }
+    if (codeTo !== "0x") {
+      var addressTo = {};
+      addressTo[txData.to] = true;
+      Object.assign(contractAddresses, addressTo);
+    }
+  }
+  //console.log(contractAddresses);
+  return contractAddresses;
+}
+
+async function getBlockTxData(blockNumber) {
+  let blockTxHashes = await getBlockTxHashes(blockNumber);
+  let blockTxData = [];
+
+  for (const tx of blockTxHashes) {
+    let txData = await getTxData(tx);
+    blockTxData.push(txData);
+  }
+  //console.log(blockTxData);
+  return blockTxData;
+}
+
+function parseBlockTxValues(blockTxData) {
+  let parsedBlock = [];
+
+  for (const txData of blockTxData) {
+    let numberValue = parseTxValue(txData);
+    if (numberValue > 0) {
+      parsedBlock.push(txData);
+    }
+  }
+  //console.log(parsedBlock);
+  return parsedBlock;
+}
+
+function compareRecipients(recipients, blockRecipients) {
+  for (var key in blockRecipients) {
+    if (recipients.hasOwnProperty(key)) {
+      recipients[key] += blockRecipients[key];
+    } else {
+      var recipient = {};
+      recipient[key] = blockRecipients[key];
+      Object.assign(recipients, recipient);
+    }
+  }
   return recipients;
 }
 
-//getLatestBlock();
-//getBlock(0);
-//getLatestBlockTxs();
-//getBlockTxs(5000001);
-//getLatestBlockTxByIndex(0);
-//getBlockTxByIndex(5000001, 0);
-//getBlocksByRange(0, 5);
-//getBlocksByRangeFromLatest(5);
+function compareSenders(senders, blockSenders) {
+  for (var key in blockSenders) {
+    if (senders.hasOwnProperty(key)) {
+      senders[key] += blockSenders[key];
+    } else {
+      var sender = {};
+      sender[key] = blockSenders[key];
+      Object.assign(senders, sender);
+    }
+  }
+  return senders;
+}
+
+function compareContracts(contracts, contractAddresses) {
+  for (var key in contractAddresses) {
+    if (contracts.hasOwnProperty(key)) {
+      contracts[key] += contractAddresses[key];
+    } else {
+      var contract = {};
+      contract[key] = contractAddresses[key];
+      Object.assign(contracts, contract);
+    }
+  }
+  return contracts;
+}
+
+async function parseBlocks(BlockRange) {
+  var recipients = {};
+  var senders = {};
+  var contracts = {};
+  var totalValue = 0;
+
+  for (const block of BlockRange) {
+    let blockTxData = await getBlockTxData(block.number);
+    let parsedBlock = await parseBlockTxValues(blockTxData);
+    let blockValue = await getBlockValue(parsedBlock);
+    let blockRecipients = await parseRecipients(parsedBlock);
+    let blockSenders = await parseSenders(parsedBlock);
+    let contractAddresses = await parseContracts(parsedBlock);
+
+    // Comparing recipients
+    recipients = await compareRecipients(recipients, blockRecipients);
+
+    // Comparing senders
+    senders = await compareSenders(senders, blockSenders);
+
+    // Comparing contract addresses
+    contracts = await compareContracts(contracts, contractAddresses);
+
+    totalValue += blockValue;
+  }
+  return { totalValue, recipients, senders, contracts };
+}
+
+async function getBlockRangeEtherCashFlow(startBlockNumber, endBlockNumber) {
+  let BlockRange = await getBlockDataRange(startBlockNumber, endBlockNumber);
+
+  let { totalValue, recipients, senders, contracts } = await parseBlocks(
+    BlockRange
+  );
+
+  //console.log(totalValue, recipients, senders, contracts);
+
+  return totalValue, recipients, senders, contracts;
+}
+
+async function getBlockRangeFromLatestEtherCashFlow(blocksFromLatest) {
+  let BlockRange = await getBlockDataRangeFromLatest(blocksFromLatest);
+
+  let { totalValue, recipients, senders, contracts } = await parseBlocks(
+    BlockRange
+  );
+
+  console.log(totalValue, recipients, senders, contracts);
+
+  return totalValue, recipients, senders, contracts;
+}
+
+//getLatestBlockData();
+//getBlockData(0);
+//getBlockTxHashes(5000001);
+//getBlockDataRange(0, 5);
+//getBlockDataRangeFromLatest(5);
 //getTxData("0xed0c9a5e4b75cc10e9e0e8106ab5c3c16381582e20b8ee644b99d98fb68fb36f");
-//getLatestBlockEtherTransferred();
-//getBlockEtherTransferred(5000001);
-//getBlockRangeEtherTransferred(5000000, 5000005);
-getBlockRangeFromLatestEtherTransferred(5);
-//getLatestBlockRecipients();
-//getBlockRecipients(5000001);
+//getBlockTxData(5000001);
+//getBlockRangeEtherCashFlow(5000000, 5000001);
+getBlockRangeFromLatestEtherCashFlow(1);
