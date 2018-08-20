@@ -3,7 +3,7 @@ const promptly = require("promptly");
 const infuraNode = "https://mainnet.infura.io/";
 const web3 = new Web3(new Web3.providers.HttpProvider(infuraNode));
 
-// Helper functions
+// Block helper functions
 
 function getLatestBlockData() {
   let blockData = web3.eth.getBlock("latest");
@@ -41,11 +41,27 @@ async function getBlockDataRangeFromLatest(blocksFromLatest) {
   return BlockRange;
 }
 
+// Tx helper function
+
 async function getTxData(txHash) {
   let txData = await web3.eth.getTransaction(txHash);
   //console.log(txData);
   return txData;
 }
+
+async function getBlockTxData(blockNumber) {
+  let blockTxHashes = await getBlockTxHashes(blockNumber);
+  let blockTxData = [];
+
+  for (const tx of blockTxHashes) {
+    let txData = await getTxData(tx);
+    blockTxData.push(txData);
+  }
+  //console.log(blockTxData);
+  return blockTxData;
+}
+
+// Tx data parsers
 
 function parseNullTxValue(txData) {
   if (txData !== null) {
@@ -109,6 +125,8 @@ function parseSenders(blockTxData) {
   return senders;
 }
 
+// Block parser functions
+
 function getBlockValue(blockTxData) {
   let blockValue = 0;
 
@@ -141,18 +159,6 @@ async function parseContracts(blockTxData) {
   return contractAddresses;
 }
 
-async function getBlockTxData(blockNumber) {
-  let blockTxHashes = await getBlockTxHashes(blockNumber);
-  let blockTxData = [];
-
-  for (const tx of blockTxHashes) {
-    let txData = await getTxData(tx);
-    blockTxData.push(txData);
-  }
-  //console.log(blockTxData);
-  return blockTxData;
-}
-
 function parseBlockTxValues(blockTxData) {
   let parsedBlock = [];
 
@@ -165,6 +171,36 @@ function parseBlockTxValues(blockTxData) {
   //console.log(parsedBlock);
   return parsedBlock;
 }
+
+async function parseBlocks(BlockRange) {
+  var recipients = {};
+  var senders = {};
+  var contracts = {};
+  var totalValue = 0;
+
+  for (const block of BlockRange) {
+    let blockTxData = await getBlockTxData(block.number);
+    let parsedBlock = await parseBlockTxValues(blockTxData);
+    let blockValue = await getBlockValue(parsedBlock);
+    let blockRecipients = await parseRecipients(parsedBlock);
+    let blockSenders = await parseSenders(parsedBlock);
+    let contractAddresses = await parseContracts(parsedBlock);
+
+    // Comparing recipients
+    recipients = await compareRecipients(recipients, blockRecipients);
+
+    // Comparing senders
+    senders = await compareSenders(senders, blockSenders);
+
+    // Comparing contract addresses
+    contracts = await compareContracts(contracts, contractAddresses);
+
+    totalValue += blockValue;
+  }
+  return { totalValue, recipients, senders, contracts };
+}
+
+// Compare helper functions
 
 function compareRecipients(recipients, blockRecipients) {
   for (var key in blockRecipients) {
@@ -205,33 +241,7 @@ function compareContracts(contracts, contractAddresses) {
   return contracts;
 }
 
-async function parseBlocks(BlockRange) {
-  var recipients = {};
-  var senders = {};
-  var contracts = {};
-  var totalValue = 0;
-
-  for (const block of BlockRange) {
-    let blockTxData = await getBlockTxData(block.number);
-    let parsedBlock = await parseBlockTxValues(blockTxData);
-    let blockValue = await getBlockValue(parsedBlock);
-    let blockRecipients = await parseRecipients(parsedBlock);
-    let blockSenders = await parseSenders(parsedBlock);
-    let contractAddresses = await parseContracts(parsedBlock);
-
-    // Comparing recipients
-    recipients = await compareRecipients(recipients, blockRecipients);
-
-    // Comparing senders
-    senders = await compareSenders(senders, blockSenders);
-
-    // Comparing contract addresses
-    contracts = await compareContracts(contracts, contractAddresses);
-
-    totalValue += blockValue;
-  }
-  return { totalValue, recipients, senders, contracts };
-}
+// Core EtherCashFlow functions
 
 async function getBlockRangeEtherCashFlow(startBlockNumber, endBlockNumber) {
   let BlockRange = await getBlockDataRange(startBlockNumber, endBlockNumber);
@@ -256,6 +266,8 @@ async function getBlockRangeFromLatestEtherCashFlow(blocksFromLatest) {
 
   return totalValue, recipients, senders, contracts;
 }
+
+// Prompt helper functions
 
 async function initialPrompt() {
   const response = await promptly.prompt(
@@ -288,18 +300,16 @@ async function fromLatestPrompt() {
   return await getBlockRangeFromLatestEtherCashFlow(fromLatest);
 }
 
+// Main function
+
 const main = async () => {
   console.log("\nThank you for using the EtherCashFlow Block Explorer!\n");
 
   let response = await initialPrompt();
 
-  //console.log(response);
-
   if (response === "1") {
     await rangePrompt();
     await main();
-    //console.log(startingBlock, endingBlock);
-    //await getBlockRangeEtherCashFlow(startingBlock, endingBlock);
   }
   if (response === "2") {
     await fromLatestPrompt();
@@ -308,13 +318,3 @@ const main = async () => {
 };
 
 main();
-
-//getLatestBlockData();
-//getBlockData(0);
-//getBlockTxHashes(5000001);
-//getBlockDataRange(0, 5);
-//getBlockDataRangeFromLatest(5);
-//getTxData("0xed0c9a5e4b75cc10e9e0e8106ab5c3c16381582e20b8ee644b99d98fb68fb36f");
-//getBlockTxData(5000001);
-//getBlockRangeEtherCashFlow(5000000, 5000001);
-//getBlockRangeFromLatestEtherCashFlow(1);

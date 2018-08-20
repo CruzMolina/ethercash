@@ -9,3 +9,11 @@ To install run:
 ```
 npm install
 ```
+
+## Running
+
+To run:
+
+```
+npm start
+```
